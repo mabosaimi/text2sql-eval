@@ -3,6 +3,7 @@ __pycache__/
 **/.venv
 
 evaluation/tasks/*/data/
+evaluation/results
 evaluation/cache/
 
 .env
@@ -10,3 +11,6 @@ evaluation/cache/
 __MACOSX
 *.log
 .ruff_cache
+
+openrouter_model.py
+notebooks/
