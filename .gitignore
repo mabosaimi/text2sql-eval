@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+**/.venv
+
+evaluation/tasks/*/data/
+evaluation/cache/
+
+.env
+.DS_Store
+__MACOSX
+*.log
+.ruff_cache

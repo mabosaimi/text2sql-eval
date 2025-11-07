@@ -1,0 +1,14 @@
+[project]
+name = "text2sql-eval"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "lm-eval>=0.4.9.1",
+]
+
+[dependency-groups]
+dev = [
+    "gdown>=5.2.0",
+]
