@@ -5,6 +5,9 @@ Adapted from: https://github.com/bird-bench/mini_dev/tree/main/llm/src
 
 import sqlite3
 import os
+import numpy as np
+import time
+import math
 
 
 def nice_look_table(column_names: list, values: list):
@@ -156,13 +159,138 @@ def calculate_ex(predicted_res, ground_truth_res):
     return int(set(predicted_res) == set(ground_truth_res))
 
 
+def calculate_row_match(predicted_row, ground_truth_row):
+    total_columns = len(ground_truth_row)
+    matches = 0
+    element_in_pred_only = 0
+    element_in_truth_only = 0
+    for pred_val in predicted_row:
+        if pred_val in ground_truth_row:
+            matches += 1
+        else:
+            element_in_pred_only += 1
+    for truth_val in ground_truth_row:
+        if truth_val not in predicted_row:
+            element_in_truth_only += 1
+    match_percentage = matches / total_columns
+    pred_only_percentage = element_in_pred_only / total_columns
+    truth_only_percentage = element_in_truth_only / total_columns
+    return match_percentage, pred_only_percentage, truth_only_percentage
+
+
+def calculate_f1_score(predicted, ground_truth):
+    if not predicted and not ground_truth:
+        return 1.0
+
+    predicted = list(dict.fromkeys(predicted))
+    ground_truth = list(dict.fromkeys(ground_truth))
+
+    match_scores = []
+    pred_only_scores = []
+    truth_only_scores = []
+    for i, gt_row in enumerate(ground_truth):
+        if i >= len(predicted):
+            match_scores.append(0)
+            truth_only_scores.append(1)
+            continue
+        pred_row = predicted[i]
+        match_score, pred_only_score, truth_only_score = calculate_row_match(
+            pred_row, gt_row
+        )
+        match_scores.append(match_score)
+        pred_only_scores.append(pred_only_score)
+        truth_only_scores.append(truth_only_score)
+
+    for i in range(len(predicted) - len(ground_truth)):
+        match_scores.append(0)
+        pred_only_scores.append(1)
+        truth_only_scores.append(0)
+
+    tp = sum(match_scores)
+    fp = sum(pred_only_scores)
+    fn = sum(truth_only_scores)
+
+    precision = tp / (tp + fp) if tp + fp > 0 else 0
+    recall = tp / (tp + fn) if tp + fn > 0 else 0
+
+    f1_score = (
+        2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
+    )
+    return f1_score
+
+
+def clean_abnormal(input_times):
+    if not input_times:
+        return []
+    input_times = np.asarray(input_times)
+    processed_list = []
+    mean = np.mean(input_times, axis=0)
+    std = np.std(input_times, axis=0)
+    for x in input_times:
+        if x < mean + 3 * std and x > mean - 3 * std:
+            processed_list.append(x)
+    return processed_list
+
+
+def calculate_ves(predicted_sql, ground_truth_sql, db_path, iterate_num=10):
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        cursor.execute(predicted_sql)
+        predicted_res = cursor.fetchall()
+        cursor.execute(ground_truth_sql)
+        ground_truth_res = cursor.fetchall()
+
+        if set(predicted_res) != set(ground_truth_res):
+            conn.close()
+            return 0
+
+        diff_list = []
+        for _ in range(iterate_num):
+            start = time.time()
+            cursor.execute(predicted_sql)
+            cursor.fetchall()
+            predicted_time = time.time() - start
+
+            start = time.time()
+            cursor.execute(ground_truth_sql)
+            cursor.fetchall()
+            ground_truth_time = time.time() - start
+
+            if predicted_time > 0:
+                diff_list.append(ground_truth_time / predicted_time)
+
+        conn.close()
+
+        processed_diff_list = clean_abnormal(diff_list)
+        if not processed_diff_list:
+            return 0
+
+        time_ratio = sum(processed_diff_list) / len(processed_diff_list)
+
+        if time_ratio >= 2:
+            return 1.25
+        elif time_ratio >= 1:
+            return 1
+        elif time_ratio >= 0.5:
+            return 0.75
+        elif time_ratio >= 0.25:
+            return 0.5
+        else:
+            return 0.25
+
+    except Exception:
+        return 0
+
+
 def process_results(doc, results):
     pred_sql = results[0] if results else ""
     gold_sql = doc.get("SQL", "")
     db_id = doc.get("db_id")
 
     if not db_id:
-        return {"ex": 0}
+        return {"ex": 0, "f1": 0.0, "ves": 0}
 
     db_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
@@ -170,6 +298,10 @@ def process_results(doc, results):
         db_id,
         f"{db_id}.sqlite",
     )
+
+    ex = 0
+    f1 = 0.0
+    ves = 0
 
     try:
         conn = sqlite3.connect(db_path)
@@ -181,6 +313,13 @@ def process_results(doc, results):
         conn.close()
 
         ex = calculate_ex(pred_res, gold_res)
-        return {"ex": ex}
+        f1 = calculate_f1_score(pred_res, gold_res)
+
     except Exception:
-        return {"ex": 0}
+        return {"ex": 0, "f1": 0.0, "ves": 0}
+
+    if ex == 1:
+        ves_score = calculate_ves(pred_sql.strip(), gold_sql.strip(), db_path)
+        ves = math.sqrt(ves_score) * 100
+
+    return {"ex": ex, "f1": f1, "ves": ves}
