@@ -2,7 +2,8 @@ __pycache__/
 *.py[cod]
 **/.venv
 
-evaluation/tasks/*/data/
+evaluation/tasks/*/data/minidev
+evaluation/tasks/*/data/*.sqlite
 evaluation/results
 evaluation/cache/
 
@@ -14,3 +15,11 @@ __MACOSX
 
 openrouter_model.py
 notebooks/
+
+!evaluation/tasks/spider2_local/data/
+!evaluation/tasks/spider2_local/data/spider2-lite.json
+!evaluation/tasks/spider2_local/data/spider2-lite_eval.jsonl
+!evaluation/tasks/spider2_local/data/databases/
+!evaluation/tasks/spider2_local/data/databases/**
+!evaluation/tasks/spider2_local/data/documents/
+!evaluation/tasks/spider2_local/data/documents/**
