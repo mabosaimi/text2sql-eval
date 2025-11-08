@@ -1,18 +1,19 @@
 task: bird_mini_dev
 dataset_path: json
 dataset_kwargs:
-  data_files: "./tasks/bird_mini_dev/data/minidev/MINIDEV/mini_dev_sqlite.json"
+  data_files: "tasks/bird_mini_dev/data/minidev/MINIDEV/mini_dev_sqlite.json"
 test_split: train
 output_type: generate_until
 doc_to_text: !function utils.doc_to_text
 doc_to_target: !function utils.doc_to_target
 process_docs: !function utils.process_docs
+process_results: !function utils.process_results
 generation_kwargs: # kwargs as per https://github.com/bird-bench/mini_dev/blob/main/llm/src/gpt_request.py
   max_gen_toks: 512
   temperature: 0.0
   do_sample: false
   until: ["--", "\n\n", ";", "#"]
 metric_list:
-  - metric: exact_match
+  - metric: ex
     aggregation: mean
     higher_is_better: true

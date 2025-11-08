@@ -4,6 +4,7 @@ Adapted from: https://github.com/bird-bench/mini_dev/tree/main/llm/src
 """
 
 import sqlite3
+import os
 
 
 def nice_look_table(column_names: list, values: list):
@@ -127,8 +128,12 @@ def generate_combined_prompts_one(db_path, question, sql_dialect, knowledge=None
 
 def doc_to_text(doc):
     """Generate prompt."""
-    db_path = f"./tasks/bird_mini_dev/data/minidev/MINIDEV/dev_databases/{doc['db_id']}/{doc['db_id']}.sqlite"
-
+    db_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "data/minidev/MINIDEV/dev_databases",
+        doc["db_id"],
+        f"{doc['db_id']}.sqlite",
+    )
     return generate_combined_prompts_one(
         db_path=db_path,
         question=doc["question"],
@@ -144,3 +149,38 @@ def doc_to_target(doc):
 
 def process_docs(dataset):
     return dataset
+
+
+# Metrics
+def calculate_ex(predicted_res, ground_truth_res):
+    return int(set(predicted_res) == set(ground_truth_res))
+
+
+def process_results(doc, results):
+    pred_sql = results[0] if results else ""
+    gold_sql = doc.get("SQL", "")
+    db_id = doc.get("db_id")
+
+    if not db_id:
+        return {"ex": 0}
+
+    db_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "data/minidev/MINIDEV/dev_databases",
+        db_id,
+        f"{db_id}.sqlite",
+    )
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(pred_sql.strip())
+        pred_res = cursor.fetchall()
+        cursor.execute(gold_sql.strip())
+        gold_res = cursor.fetchall()
+        conn.close()
+
+        ex = calculate_ex(pred_res, gold_res)
+        return {"ex": ex}
+    except Exception:
+        return {"ex": 0}
