@@ -1,7 +1,5 @@
-"""
-BIRD mini-dev prompt generation utilities.
-Adapted from: https://github.com/bird-bench/mini_dev/tree/main/llm/src
-"""
+"""BIRD mini-dev evaluation.
+Adapted from https://github.com/bird-bench/mini_dev"""
 
 import sqlite3
 import os

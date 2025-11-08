@@ -1,1 +1,22 @@
 task: spider2_local
+dataset_path: json
+dataset_kwargs:
+  data_files: "tasks/spider2_local/data/spider2-lite.jsonl"
+test_split: train
+output_type: generate_until
+doc_to_text: !function utils.doc_to_text
+doc_to_target: !function utils.doc_to_target
+process_docs: !function utils.process_docs
+process_results: !function utils.process_results
+generation_kwargs:
+  max_gen_toks: 512
+  temperature: 0.0
+  do_sample: false
+  until: [";", "\n\n"]
+metric_list:
+  - metric: ex
+    aggregation: mean
+    higher_is_better: true
+  - metric: valid
+    aggregation: mean
+    higher_is_better: true
